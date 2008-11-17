@@ -1,0 +1,8 @@
+libnifalcon_hdal ChangeLog
+==========================
+
+2008-10-11 Kyle Machulis <kyle@nonpolynomial.com>
+	* Created libnifalcon_hdal project
+	* Moved code from libnifalcon
+	* Fixed CMakeLists to work with mac or linux
+	* Added license and documentation files

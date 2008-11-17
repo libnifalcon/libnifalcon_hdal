@@ -1,0 +1,134 @@
+#cmake directives
+
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6.0 FATAL_ERROR)
+SET(CMAKE_MODULE_PATH "./cmake_modules/")
+
+#setting link directory policy
+
+IF(COMMAND cmake_policy)
+  CMAKE_POLICY(SET CMP0003 NEW)
+ENDIF(COMMAND cmake_policy)
+
+#taken from http://www.cmake.org/pipermail/cmake/2006-February/008334.html
+
+MACRO(SET_COMPILE_FLAGS TARGET)
+  SET(FLAGS)
+  FOREACH(flag ${ARGN})
+    SET(FLAGS "${FLAGS} ${flag}")
+  ENDFOREACH(flag)
+  SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS "${FLAGS}")
+ENDMACRO(SET_COMPILE_FLAGS)
+
+#Generalized library building function for all C++ libraries
+FUNCTION(BUILD_NIFALCON_LIB LIB_NAME LIB_TYPES SRCS LINK_LIBS CXX_DEFINES)
+  FOREACH(LIB_TYPE ${LIB_TYPES})
+	SET(CURRENT_LIB ${LIB_NAME}_${LIB_TYPE})
+	ADD_LIBRARY (${CURRENT_LIB} ${LIB_TYPE} ${SRCS})
+
+	SET_TARGET_PROPERTIES (${CURRENT_LIB} PROPERTIES OUTPUT_NAME ${LIB_NAME})
+	SET_TARGET_PROPERTIES (${CURRENT_LIB} PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+	SET_TARGET_PROPERTIES (${CURRENT_LIB} PROPERTIES VERSION ${LIBNIFALCON_HDAL_VERSION})
+
+	#optional arguments
+	IF(LINK_LIBS)
+	  FOREACH(LINK_LIB ${LINK_LIBS})
+		TARGET_LINK_LIBRARIES(${CURRENT_LIB} ${LINK_LIB})
+	  ENDFOREACH(LINK_LIB)
+	ENDIF(LINK_LIBS)
+
+	#cpp defines
+	IF(CXX_DEFINES)
+	  SET_COMPILE_FLAGS(${CURRENT_LIB} ${CXX_DEFINES})
+	ENDIF(CXX_DEFINES)
+
+	#installation for non-windows platforms
+	IF(NOT WIN32)
+	  INSTALL(TARGETS ${CURRENT_LIB} LIBRARY DESTINATION ${LIBRARY_INSTALL_DIR} ARCHIVE DESTINATION ${LIBRARY_INSTALL_DIR})
+	ENDIF(NOT WIN32)
+
+	#rewrite of install_name_dir in apple binaries
+	IF(APPLE)
+	  SET_TARGET_PROPERTIES(${CURRENT_LIB} PROPERTIES INSTALL_NAME_DIR ${LIBRARY_INSTALL_DIR})
+	ENDIF(APPLE)
+  ENDFOREACH(LIB_TYPE)
+ENDFUNCTION(BUILD_NIFALCON_LIB)
+
+SET(BUILD_TYPES STATIC SHARED)
+
+#project definition
+
+PROJECT(LIBNIFALCON_HDAL)
+
+OPTION(SET_BUILD_RPATH "Use different RPATH for build tree and install (requires relink at install time, handy for development)" OFF)
+
+#finds for libnifalcon_hdal building
+SET(PROJECT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+FIND_PACKAGE(libnifalcon)
+FIND_PACKAGE(Boost 1.33 COMPONENTS program_options thread)
+
+#Local output paths
+
+SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+SET(LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+SET(GMTL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+#library definitions
+
+SET(LIBNIFALCON_HDAL_VERSION 0.1)
+SET(LIBNIFALCON_DEBUG_POSTFIX "_d")
+
+#library name definitions
+
+SET(LIBNIFALCON_HDAL "nifalcon_hdal")
+
+#common library additions
+
+IF(UNIX)
+  SET(LIBMATH "m")
+ENDIF(UNIX)
+
+  SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -pg")
+  SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -pg") 
+  SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -g -pg")
+  SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -g -pg")
+
+
+#default install directories
+
+IF(UNIX)
+  IF(NOT INCLUDE_INSTALL_DIR)
+	SET(INCLUDE_INSTALL_DIR /usr/local/include)
+  ENDIF(NOT INCLUDE_INSTALL_DIR)
+  IF(NOT LIBRARY_INSTALL_DIR)
+	SET(LIBRARY_INSTALL_DIR /usr/local/lib)
+  ENDIF(NOT LIBRARY_INSTALL_DIR)
+  IF(NOT RUNTIME_INSTALL_DIR)
+	SET(RUNTIME_INSTALL_DIR /usr/local/bin)
+  ENDIF(NOT RUNTIME_INSTALL_DIR)
+ENDIF(UNIX)
+
+IF(SET_BUILD_RPATH)
+  # use, i.e. don't skip the full RPATH for the build tree
+  SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+  
+  # when building, don't use the install RPATH already
+  # (but later on when installing)
+  SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
+  
+  # the RPATH to be used when installing
+  SET(CMAKE_INSTALL_RPATH "${LIBRARY_INSTALL_DIR}")
+  
+  # add the automatically determined parts of the RPATH
+  # which point to directories outside the build tree to the install RPATH
+  SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+ENDIF(SET_BUILD_RPATH)
+
+MESSAGE(STATUS "Include Install Directory: ${INCLUDE_INSTALL_DIR}")
+MESSAGE(STATUS "Library Install Directory: ${LIBRARY_INSTALL_DIR}")
+MESSAGE(STATUS "Runtime Install Directory: ${RUNTIME_INSTALL_DIR}")
+
+#the two main source directories
+
+ADD_SUBDIRECTORY(src)
+ADD_SUBDIRECTORY(examples)
